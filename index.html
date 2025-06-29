@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ralph Sonic Atelier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="atmosphere"></div>
+    <main class="shell">
+      <header class="hero">
+        <p class="eyebrow">Group Scholar Lab • Sonic Atelier</p>
+        <div class="hero-main">
+          <h1>Ralph Sonic Atelier</h1>
+          <p class="subtitle">
+            A generative music sketchbook for discovery, reflection, and
+            performance-ready textures.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="toggleAudio" class="primary">Start Session</button>
+          <button id="randomize" class="ghost">Randomize Sketch</button>
+        </div>
+      </header>
+
+      <section class="studio">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Signal Desk</h2>
+            <p>Shape the cadence, timbre, and energy.</p>
+          </div>
+          <div class="control-grid">
+            <label>
+              <span>Tempo</span>
+              <input id="tempo" type="range" min="60" max="160" value="108" />
+              <output id="tempoValue">108 BPM</output>
+            </label>
+            <label>
+              <span>Density</span>
+              <input id="density" type="range" min="1" max="8" value="5" />
+              <output id="densityValue">5 Notes</output>
+            </label>
+            <label>
+              <span>Energy</span>
+              <input id="energy" type="range" min="10" max="90" value="45" />
+              <output id="energyValue">45%</output>
+            </label>
+            <label>
+              <span>Accent</span>
+              <input id="accent" type="range" min="0" max="100" value="30" />
+              <output id="accentValue">30%</output>
+            </label>
+            <label>
+              <span>Humanize</span>
+              <input id="humanize" type="range" min="0" max="40" value="12" />
+              <output id="humanizeValue">12 ms</output>
+            </label>
+            <label>
+              <span>Texture</span>
+              <input id="texture" type="range" min="0" max="100" value="55" />
+              <output id="textureValue">55%</output>
+            </label>
+            <label>
+              <span>Atmosphere</span>
+              <input id="atmosphere" type="range" min="0" max="100" value="35" />
+              <output id="atmosphereValue">35%</output>
+            </label>
+            <label>
+              <span>Pulse Swing</span>
+              <input id="swing" type="range" min="0" max="60" value="18" />
+              <output id="swingValue">18%</output>
+            </label>
+          </div>
+          <div class="scale">
+            <div>
+              <span>Root</span>
+              <div class="chip-row" id="rootButtons"></div>
+            </div>
+            <div>
+              <span>Mode</span>
+              <div class="chip-row" id="modeButtons"></div>
+            </div>
+          </div>
+          <div class="transport">
+            <div>
+              <span>Scene Length</span>
+              <input id="length" type="range" min="4" max="16" value="8" />
+              <output id="lengthValue">8 Steps</output>
+            </div>
+            <div>
+              <span>Drone Level</span>
+              <input id="drone" type="range" min="0" max="100" value="25" />
+              <output id="droneValue">25%</output>
+            </div>
+            <div class="toggle-row">
+              <button id="toggleTexture" class="ghost">Enable Field Texture</button>
+              <button id="toggleDrone" class="ghost">Enable Drone</button>
+              <button id="toggleVisuals" class="ghost">Hide Visuals</button>
+            </div>
+          </div>
+          <div class="drift">
+            <div class="drift-header">
+              <h3>Session Drift</h3>
+              <p>Let parameters evolve slowly while you perform.</p>
+            </div>
+            <div class="drift-controls">
+              <button id="toggleDrift" class="ghost">Enable Drift</button>
+              <label>
+                <span>Drift Rate</span>
+                <input id="driftRate" type="range" min="4" max="20" value="10" />
+                <output id="driftRateValue">10s</output>
+              </label>
+              <label>
+                <span>Drift Range</span>
+                <input id="driftRange" type="range" min="5" max="30" value="14" />
+                <output id="driftRangeValue">14%</output>
+              </label>
+            </div>
+            <div class="step-monitor-wrap">
+              <span>Step Monitor</span>
+              <div class="step-monitor" id="stepMonitor"></div>
+            </div>
+          </div>
+          <div class="library">
+            <div class="library-header">
+              <h3>Scene Palette</h3>
+              <p>Jump to curated moods or save a moment.</p>
+            </div>
+            <div class="preset-row" id="presetButtons"></div>
+            <div class="save-row">
+              <input id="sceneName" type="text" maxlength="24" placeholder="Name this scene" />
+              <button id="saveScene" class="ghost">Save Scene</button>
+            </div>
+            <ul class="saved-scenes" id="savedScenes"></ul>
+          </div>
+        </div>
+
+        <div class="canvas-wrap">
+          <div class="canvas-header">
+            <h2>Sketch Canvas</h2>
+            <p>Watch the phrase breathe and glow in real time.</p>
+          </div>
+          <canvas id="canvas" width="900" height="700"></canvas>
+          <div class="status" id="status">Session idle. Tap Start Session.</div>
+          <div class="scene">
+            <div class="scene-card">
+              <h3>Current Motif</h3>
+              <ul id="motifList"></ul>
+            </div>
+            <div class="scene-card">
+              <h3>Session Notes</h3>
+              <ul>
+                <li>Generative sequence follows scale + density.</li>
+                <li>Texture adds filtered noise for field warmth.</li>
+                <li>Atmosphere blends in spatial delay.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
