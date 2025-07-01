@@ -38,6 +38,8 @@ const ui = {
   status: document.getElementById("status"),
   motifList: document.getElementById("motifList"),
   stepMonitor: document.getElementById("stepMonitor"),
+  sessionLog: document.getElementById("sessionLog"),
+  clearLog: document.getElementById("clearLog"),
   canvas: document.getElementById("canvas"),
 };
 
@@ -162,6 +164,8 @@ const particleField = Array.from({ length: 60 }, (_, index) => ({
   drift: 0.2 + Math.random() * 0.6,
   hue: 30 + index,
 }));
+const sessionLog = [];
+const maxLogEntries = 10;
 
 function updateOutputs() {
   ui.tempoValue.textContent = `${state.tempo} BPM`;
@@ -180,6 +184,39 @@ function updateOutputs() {
 
 function updateStatus(message) {
   ui.status.textContent = message;
+}
+
+function addLogEntry(message) {
+  const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  sessionLog.unshift({ message, timestamp });
+  if (sessionLog.length > maxLogEntries) {
+    sessionLog.pop();
+  }
+  renderSessionLog();
+}
+
+function renderSessionLog() {
+  if (!ui.sessionLog) return;
+  ui.sessionLog.innerHTML = "";
+  if (sessionLog.length === 0) {
+    const empty = document.createElement("li");
+    empty.textContent = "No session events yet.";
+    empty.className = "empty";
+    ui.sessionLog.appendChild(empty);
+    return;
+  }
+  sessionLog.forEach((entry) => {
+    const item = document.createElement("li");
+    const time = document.createElement("span");
+    const text = document.createElement("span");
+    time.className = "log-time";
+    text.className = "log-text";
+    time.textContent = entry.timestamp;
+    text.textContent = entry.message;
+    item.appendChild(time);
+    item.appendChild(text);
+    ui.sessionLog.appendChild(item);
+  });
 }
 
 function createButtons(list, container, handler) {
@@ -254,7 +291,9 @@ function applySettings(settings, announce) {
   applyAtmosphere();
   updateDroneParams();
   if (announce) {
-    updateStatus(`Scene set: ${settings.root} ${settings.mode}.`);
+    const message = `Scene set: ${settings.root} ${settings.mode}.`;
+    updateStatus(message);
+    addLogEntry(message);
   }
 }
 
@@ -479,6 +518,7 @@ function startPlayback() {
   state.isPlaying = true;
   ui.toggleAudio.textContent = "Pause Session";
   updateStatus("Session live. Sculpting your motif.");
+  addLogEntry("Session started.");
   generateSequence();
   applyAtmosphere();
   currentStep = 0;
@@ -494,6 +534,7 @@ function stopPlayback() {
   state.isPlaying = false;
   ui.toggleAudio.textContent = "Start Session";
   updateStatus("Session paused. Motif retained.");
+  addLogEntry("Session paused.");
   clearInterval(timerId);
   setActiveStep(null);
 }
@@ -527,12 +568,15 @@ function randomizeSketch() {
   generateSequence();
   applyAtmosphere();
   updateStatus("Random sketch generated.");
+  addLogEntry("Random sketch generated.");
 }
 
 function toggleTexture() {
   state.textureEnabled = !state.textureEnabled;
   ui.toggleTexture.textContent = state.textureEnabled ? "Disable Field Texture" : "Enable Field Texture";
-  updateStatus(state.textureEnabled ? "Field texture enabled." : "Field texture disabled.");
+  const message = state.textureEnabled ? "Field texture enabled." : "Field texture disabled.";
+  updateStatus(message);
+  addLogEntry(message);
 }
 
 function toggleDrone() {
@@ -541,16 +585,20 @@ function toggleDrone() {
   if (state.droneEnabled) {
     startDrone();
     updateStatus("Drone bed engaged.");
+    addLogEntry("Drone bed engaged.");
   } else {
     stopDrone();
     updateStatus("Drone bed muted.");
+    addLogEntry("Drone bed muted.");
   }
 }
 
 function toggleVisuals() {
   state.visualsEnabled = !state.visualsEnabled;
   ui.toggleVisuals.textContent = state.visualsEnabled ? "Hide Visuals" : "Show Visuals";
-  updateStatus(state.visualsEnabled ? "Visuals on." : "Visuals hidden.");
+  const message = state.visualsEnabled ? "Visuals on." : "Visuals hidden.";
+  updateStatus(message);
+  addLogEntry(message);
 }
 
 function clamp(value, min, max) {
@@ -589,9 +637,11 @@ function toggleDrift() {
     clearInterval(driftTimer);
     driftTimer = setInterval(applyDriftStep, state.driftRate * 1000);
     updateStatus("Session drift engaged.");
+    addLogEntry("Session drift engaged.");
   } else {
     clearInterval(driftTimer);
     updateStatus("Session drift disabled.");
+    addLogEntry("Session drift disabled.");
   }
 }
 
@@ -678,14 +728,18 @@ function renderSavedScenes() {
 
     loadButton.addEventListener("click", () => {
       applySettings(scene.settings, true);
-      updateStatus(`Loaded scene: ${scene.name}.`);
+      const message = `Loaded scene: ${scene.name}.`;
+      updateStatus(message);
+      addLogEntry(message);
     });
 
     removeButton.addEventListener("click", () => {
       const nextScenes = loadSavedScenes().filter((entry) => entry.id !== scene.id);
       saveScenes(nextScenes);
       renderSavedScenes();
-      updateStatus(`Removed scene: ${scene.name}.`);
+      const message = `Removed scene: ${scene.name}.`;
+      updateStatus(message);
+      addLogEntry(message);
     });
 
     item.appendChild(name);
@@ -726,7 +780,9 @@ function saveScene() {
   saveScenes(nextScenes);
   ui.sceneName.value = "";
   renderSavedScenes();
-  updateStatus(`Saved scene: ${name}.`);
+  const message = `Saved scene: ${name}.`;
+  updateStatus(message);
+  addLogEntry(message);
 }
 
 function bindControls() {
@@ -813,6 +869,11 @@ function bindControls() {
   ui.toggleVisuals.addEventListener("click", toggleVisuals);
   ui.toggleDrift.addEventListener("click", toggleDrift);
   ui.saveScene.addEventListener("click", saveScene);
+  ui.clearLog.addEventListener("click", () => {
+    sessionLog.length = 0;
+    renderSessionLog();
+    updateStatus("Session log cleared.");
+  });
 }
 
 function init() {
@@ -837,6 +898,7 @@ function init() {
   generateSequence();
   createPresetButtons();
   renderSavedScenes();
+  renderSessionLog();
   bindControls();
   resizeCanvas();
   window.addEventListener("resize", resizeCanvas);
