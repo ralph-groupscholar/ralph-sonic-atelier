@@ -35,6 +35,9 @@ const ui = {
   driftRateValue: document.getElementById("driftRateValue"),
   driftRange: document.getElementById("driftRange"),
   driftRangeValue: document.getElementById("driftRangeValue"),
+  morphIntensity: document.getElementById("morphIntensity"),
+  morphIntensityValue: document.getElementById("morphIntensityValue"),
+  evolveMotif: document.getElementById("evolveMotif"),
   status: document.getElementById("status"),
   motifList: document.getElementById("motifList"),
   stepMonitor: document.getElementById("stepMonitor"),
@@ -62,6 +65,7 @@ const state = {
   driftEnabled: false,
   driftRate: Number(ui.driftRate.value),
   driftRange: Number(ui.driftRange.value) / 100,
+  morphIntensity: Number(ui.morphIntensity.value) / 100,
   visualsEnabled: true,
   sequence: [],
 };
