@@ -30,6 +30,12 @@ const ui = {
   sceneName: document.getElementById("sceneName"),
   saveScene: document.getElementById("saveScene"),
   savedScenes: document.getElementById("savedScenes"),
+  syncCloud: document.getElementById("syncCloud"),
+  refreshCloud: document.getElementById("refreshCloud"),
+  cloudStatus: document.getElementById("cloudStatus"),
+  cloudScenes: document.getElementById("cloudScenes"),
+  recordSession: document.getElementById("recordSession"),
+  ledgerList: document.getElementById("ledgerList"),
   toggleDrift: document.getElementById("toggleDrift"),
   driftRate: document.getElementById("driftRate"),
   driftRateValue: document.getElementById("driftRateValue"),
@@ -83,6 +89,8 @@ const modes = {
 const rootOffsets = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const storageKey = "sonicAtelierScenes";
 const maxSavedScenes = 8;
+const cloudApi = "/api/scenes";
+const ledgerApi = "/api/sessions";
 const presets = [
   {
     name: "Ember Drift",
@@ -170,6 +178,8 @@ const particleField = Array.from({ length: 60 }, (_, index) => ({
 }));
 const sessionLog = [];
 const maxLogEntries = 10;
+let ledgerEntries = [];
+let ledgerStatus = "idle";
 
 function updateOutputs() {
   ui.tempoValue.textContent = `${state.tempo} BPM`;
@@ -184,6 +194,7 @@ function updateOutputs() {
   ui.droneValue.textContent = `${Math.round(state.droneLevel * 100)}%`;
   ui.driftRateValue.textContent = `${state.driftRate}s`;
   ui.driftRangeValue.textContent = `${Math.round(state.driftRange * 100)}%`;
+  ui.morphIntensityValue.textContent = `${Math.round(state.morphIntensity * 100)}%`;
 }
 
 function updateStatus(message) {
@@ -221,6 +232,135 @@ function renderSessionLog() {
     item.appendChild(text);
     ui.sessionLog.appendChild(item);
   });
+}
+
+function formatLedgerTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function buildMoodLabel() {
+  const warmth = state.texture + state.atmosphere;
+  if (state.energy > 0.6 && warmth < 0.8) return "Electric Focus";
+  if (state.energy < 0.4 && warmth > 1.1) return "Ambient Bloom";
+  if (state.swing > 0.25 && state.energy > 0.5) return "Rhythmic Pulse";
+  if (state.energy < 0.35) return "Soft Drift";
+  return "Balanced Drift";
+}
+
+function renderLedger() {
+  if (!ui.ledgerList) return;
+  ui.ledgerList.innerHTML = "";
+
+  if (ledgerStatus === "loading") {
+    const loading = document.createElement("li");
+    loading.className = "ledger-empty";
+    loading.textContent = "Syncing ledger...";
+    ui.ledgerList.appendChild(loading);
+    return;
+  }
+
+  if (ledgerStatus === "offline") {
+    const offline = document.createElement("li");
+    offline.className = "ledger-empty";
+    offline.textContent = "Ledger offline. Deploy to sync snapshots.";
+    ui.ledgerList.appendChild(offline);
+    return;
+  }
+
+  if (ledgerEntries.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "ledger-empty";
+    empty.textContent = "No shared snapshots yet.";
+    ui.ledgerList.appendChild(empty);
+    return;
+  }
+
+  ledgerEntries.forEach((entry) => {
+    const item = document.createElement("li");
+    const header = document.createElement("div");
+    const name = document.createElement("span");
+    const time = document.createElement("span");
+    const meta = document.createElement("div");
+
+    item.className = "ledger-item";
+    header.className = "ledger-header-row";
+    meta.className = "ledger-meta";
+
+    name.textContent = entry.scene_name;
+    time.textContent = formatLedgerTimestamp(entry.created_at);
+    header.appendChild(name);
+    header.appendChild(time);
+
+    meta.textContent = `${entry.root} ${entry.mode} \u2022 ${entry.tempo} BPM \u2022 ${entry.mood}`;
+
+    item.appendChild(header);
+    item.appendChild(meta);
+    ui.ledgerList.appendChild(item);
+  });
+}
+
+async function fetchLedger() {
+  if (!ui.ledgerList) return;
+  ledgerStatus = "loading";
+  renderLedger();
+  try {
+    const response = await fetch(`${ledgerApi}?limit=6`);
+    if (!response.ok) throw new Error("Ledger unavailable");
+    const data = await response.json();
+    ledgerEntries = Array.isArray(data.sessions) ? data.sessions : [];
+    ledgerStatus = "ready";
+  } catch (error) {
+    ledgerStatus = "offline";
+  }
+  renderLedger();
+}
+
+async function recordSessionSnapshot() {
+  if (!ui.recordSession) return;
+  const sceneName = ui.sceneName.value.trim() || `Live ${state.root} ${state.mode}`;
+  const payload = {
+    sceneName,
+    root: state.root,
+    mode: state.mode,
+    tempo: state.tempo,
+    density: state.density,
+    length: state.length,
+    energy: Math.round(state.energy * 100),
+    accent: Math.round(state.accent * 100),
+    humanize: Math.round(state.humanize),
+    texture: Math.round(state.texture * 100),
+    atmosphere: Math.round(state.atmosphere * 100),
+    swing: Math.round(state.swing * 100),
+    mood: buildMoodLabel(),
+    notes: state.isPlaying ? "Recorded while live." : "Recorded while paused.",
+  };
+
+  ui.recordSession.disabled = true;
+  ui.recordSession.textContent = "Recording...";
+  try {
+    const response = await fetch(ledgerApi, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error("Unable to record");
+    updateStatus("Snapshot recorded in the studio ledger.");
+    addLogEntry("Snapshot recorded to shared ledger.");
+    await fetchLedger();
+  } catch (error) {
+    updateStatus("Ledger offline. Snapshot not recorded.");
+    addLogEntry("Ledger offline. Snapshot not recorded.");
+  } finally {
+    ui.recordSession.disabled = false;
+    ui.recordSession.textContent = "Record Snapshot";
+  }
 }
 
 function createButtons(list, container, handler) {
@@ -275,6 +415,7 @@ function applySettings(settings, announce) {
   state.swing = settings.swing;
   state.length = settings.length;
   state.droneLevel = settings.droneLevel ?? state.droneLevel;
+  state.morphIntensity = settings.morphIntensity ?? state.morphIntensity;
   state.root = settings.root;
   state.mode = settings.mode;
 
@@ -288,6 +429,7 @@ function applySettings(settings, announce) {
   ui.swing.value = Math.round(state.swing * 100);
   ui.length.value = state.length;
   ui.drone.value = Math.round(state.droneLevel * 100);
+  ui.morphIntensity.value = Math.round(state.morphIntensity * 100);
 
   updateOutputs();
   updateButtonStates();
@@ -319,6 +461,61 @@ function generateSequence() {
   state.sequence = steps;
   updateMotif();
   renderStepMonitor();
+}
+
+function evolveMotif() {
+  if (!state.sequence.length) return;
+  const scale = buildScale();
+  const nextSequence = [...state.sequence];
+  const intensity = clamp(state.morphIntensity, 0, 1);
+  const mutations = Math.max(1, Math.round(intensity * nextSequence.length * 0.7));
+
+  for (let i = 0; i < mutations; i += 1) {
+    const step = Math.floor(Math.random() * nextSequence.length);
+    const currentNote = nextSequence[step];
+    const shouldRest = Math.random() < 0.2 + intensity * 0.35;
+
+    if (shouldRest) {
+      nextSequence[step] = currentNote === null ? null : null;
+      continue;
+    }
+
+    const octave = currentNote ? Math.floor(currentNote / 12) : 3 + Math.floor(Math.random() * 2);
+    const degree = scale[Math.floor(Math.random() * scale.length)];
+    nextSequence[step] = 12 * octave + degree;
+  }
+
+  const desiredNotes = Math.min(state.density, nextSequence.length);
+  let noteCount = nextSequence.filter((note) => note !== null).length;
+  if (noteCount < desiredNotes) {
+    const rests = nextSequence
+      .map((note, index) => (note === null ? index : null))
+      .filter((index) => index !== null);
+    while (noteCount < desiredNotes && rests.length > 0) {
+      const pickIndex = Math.floor(Math.random() * rests.length);
+      const step = rests.splice(pickIndex, 1)[0];
+      const degree = scale[Math.floor(Math.random() * scale.length)];
+      const octave = 3 + Math.floor(Math.random() * 2);
+      nextSequence[step] = 12 * octave + degree;
+      noteCount += 1;
+    }
+  } else if (noteCount > desiredNotes) {
+    const notes = nextSequence
+      .map((note, index) => (note !== null ? index : null))
+      .filter((index) => index !== null);
+    while (noteCount > desiredNotes && notes.length > 0) {
+      const pickIndex = Math.floor(Math.random() * notes.length);
+      const step = notes.splice(pickIndex, 1)[0];
+      nextSequence[step] = null;
+      noteCount -= 1;
+    }
+  }
+
+  state.sequence = nextSequence;
+  updateMotif();
+  renderStepMonitor();
+  updateStatus("Motif evolved. New phrase ready.");
+  addLogEntry("Motif evolved in the lab.");
 }
 
 function updateMotif() {
@@ -709,6 +906,108 @@ function saveScenes(scenes) {
   localStorage.setItem(storageKey, JSON.stringify(scenes));
 }
 
+function setCloudStatus(message, isError = false) {
+  ui.cloudStatus.textContent = message;
+  ui.cloudStatus.dataset.state = isError ? "error" : "ok";
+}
+
+function renderCloudScenes(scenes) {
+  ui.cloudScenes.innerHTML = "";
+  if (scenes.length === 0) {
+    const empty = document.createElement("li");
+    empty.textContent = "Cloud library is empty.";
+    empty.style.opacity = "0.7";
+    ui.cloudScenes.appendChild(empty);
+    return;
+  }
+
+  scenes.forEach((scene) => {
+    const item = document.createElement("li");
+    const name = document.createElement("span");
+    const loadButton = document.createElement("button");
+    const saveLocalButton = document.createElement("button");
+
+    name.textContent = scene.name;
+    loadButton.textContent = "Load";
+    saveLocalButton.textContent = "Save Local";
+
+    loadButton.addEventListener("click", () => {
+      applySettings(scene.settings, true);
+      const message = `Loaded cloud scene: ${scene.name}.`;
+      updateStatus(message);
+      addLogEntry(message);
+    });
+
+    saveLocalButton.addEventListener("click", () => {
+      const localScenes = loadSavedScenes();
+      const newScene = {
+        id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        name: scene.name,
+        settings: scene.settings,
+      };
+      const nextScenes = [newScene, ...localScenes].slice(0, maxSavedScenes);
+      saveScenes(nextScenes);
+      renderSavedScenes();
+      const message = `Saved locally: ${scene.name}.`;
+      updateStatus(message);
+      addLogEntry(message);
+    });
+
+    item.appendChild(name);
+    item.appendChild(loadButton);
+    item.appendChild(saveLocalButton);
+    ui.cloudScenes.appendChild(item);
+  });
+}
+
+async function fetchCloudScenes() {
+  setCloudStatus("Loading cloud scenes...");
+  try {
+    const response = await fetch(cloudApi);
+    if (!response.ok) {
+      const errorPayload = await response.json().catch(() => ({}));
+      const reason = errorPayload?.error || "Unable to fetch cloud scenes.";
+      throw new Error(reason);
+    }
+    const data = await response.json();
+    const scenes = Array.isArray(data.scenes) ? data.scenes : [];
+    renderCloudScenes(scenes);
+    setCloudStatus(`Cloud updated · ${scenes.length} scenes`);
+  } catch (error) {
+    const message = error?.message === "Database not configured."
+      ? "Cloud unavailable. Configure database."
+      : "Cloud offline. Try again shortly.";
+    setCloudStatus(message, true);
+  }
+}
+
+async function syncLocalScenesToCloud() {
+  const scenes = loadSavedScenes();
+  if (scenes.length === 0) {
+    setCloudStatus("Save a scene locally before syncing.", true);
+    return;
+  }
+  setCloudStatus("Syncing local scenes...");
+  try {
+    const response = await fetch(cloudApi, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scenes: scenes.map((scene) => ({ name: scene.name, settings: scene.settings })),
+      }),
+    });
+    if (!response.ok) {
+      throw new Error("Sync failed.");
+    }
+    const data = await response.json();
+    const inserted = Number(data.inserted || 0);
+    setCloudStatus(`Synced ${inserted} scenes to cloud.`);
+    fetchCloudScenes();
+  } catch (error) {
+    setCloudStatus("Sync failed. Check connection.", true);
+  }
+}
+
 function renderSavedScenes() {
   const scenes = loadSavedScenes();
   ui.savedScenes.innerHTML = "";
@@ -773,6 +1072,7 @@ function saveScene() {
       root: state.root,
       mode: state.mode,
       droneLevel: state.droneLevel,
+      morphIntensity: state.morphIntensity,
     },
   };
 
@@ -868,11 +1168,22 @@ function bindControls() {
     updateOutputs();
   });
 
+  ui.morphIntensity.addEventListener("input", (event) => {
+    state.morphIntensity = Number(event.target.value) / 100;
+    updateOutputs();
+  });
+
   ui.toggleTexture.addEventListener("click", toggleTexture);
   ui.toggleDrone.addEventListener("click", toggleDrone);
   ui.toggleVisuals.addEventListener("click", toggleVisuals);
   ui.toggleDrift.addEventListener("click", toggleDrift);
+  ui.evolveMotif.addEventListener("click", evolveMotif);
   ui.saveScene.addEventListener("click", saveScene);
+  if (ui.recordSession) {
+    ui.recordSession.addEventListener("click", recordSessionSnapshot);
+  }
+  ui.syncCloud.addEventListener("click", syncLocalScenesToCloud);
+  ui.refreshCloud.addEventListener("click", fetchCloudScenes);
   ui.clearLog.addEventListener("click", () => {
     sessionLog.length = 0;
     renderSessionLog();
@@ -902,6 +1213,9 @@ function init() {
   generateSequence();
   createPresetButtons();
   renderSavedScenes();
+  renderCloudScenes([]);
+  fetchCloudScenes();
+  fetchLedger();
   renderSessionLog();
   bindControls();
   resizeCanvas();

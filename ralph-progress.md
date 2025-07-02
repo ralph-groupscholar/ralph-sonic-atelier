@@ -24,3 +24,14 @@
 - Added a step monitor with active pulse feedback to visualize sequence playback.
 - Enabled drone toggling plus accent/humanize responsiveness and expanded scene saves to capture these parameters.
 - Deployed to Vercel: https://ralph-sonic-atelier.vercel.app
+
+## Iteration 3
+- Added cloud scene persistence schema + seed data for the shared PostgreSQL database.
+- Tightened cloud scene API inserts with de-duplication and capped sync payloads.
+- Documented production database env setup for the cloud library and refreshed error messaging.
+- Attempted Vercel production deploy; blocked by free-tier deployment limit.
+
+## Iteration 3
+- Added a cloud scene library with sync + refresh controls and UI styling.
+- Wired Vercel API endpoint to PostgreSQL for shared cloud scenes with auto schema setup.
+- Seeded production database with starter cloud scenes and documented env setup.

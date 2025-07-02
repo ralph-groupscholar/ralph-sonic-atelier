@@ -1,0 +1,12 @@
+{
+  "name": "ralph-sonic-atelier",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generative music sketchbook and visual instrument dashboard.",
+  "scripts": {
+    "seed:production": "node scripts/seed-production.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.3"
+  }
+}
