@@ -280,6 +280,34 @@ output {
   transform: scaleY(1.6);
 }
 
+.motif-lab {
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(15, 16, 20, 0.1);
+}
+
+.motif-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-family: var(--font-display);
+}
+
+.motif-header p {
+  margin: 6px 0 0;
+  color: rgba(15, 16, 20, 0.6);
+  font-size: 0.9rem;
+}
+
+.motif-controls {
+  display: grid;
+  gap: 12px;
+}
+
+.motif-controls button {
+  justify-self: start;
+}
+
 .library {
   display: grid;
   gap: 16px;
@@ -351,6 +379,82 @@ output {
   border: 1px solid rgba(15, 16, 20, 0.2);
 }
 
+.cloud-library {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(15, 16, 20, 0.08);
+}
+
+.cloud-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-family: var(--font-display);
+}
+
+.cloud-header p {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: rgba(15, 16, 20, 0.55);
+}
+
+.cloud-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cloud-actions button {
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(15, 16, 20, 0.18);
+}
+
+.cloud-status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(15, 16, 20, 0.6);
+}
+
+.cloud-status[data-state="error"] {
+  color: rgba(199, 45, 91, 0.8);
+}
+
+.cloud-scenes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.cloud-scenes li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(15, 16, 20, 0.05);
+}
+
+.cloud-scenes span {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cloud-scenes button {
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(15, 16, 20, 0.18);
+}
+
 .canvas-wrap {
   background: rgba(15, 16, 20, 0.88);
   border-radius: var(--radius);
@@ -411,6 +515,22 @@ canvas {
   font-size: 0.78rem;
 }
 
+.ledger-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.ledger-header h3 {
+  margin: 0;
+}
+
+.ledger-header button {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+}
+
 .scene-card ul {
   margin: 0;
   padding-left: 18px;
@@ -454,6 +574,50 @@ canvas {
 
 .log-text {
   color: rgba(244, 239, 230, 0.9);
+}
+
+.ledger-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+  color: rgba(244, 239, 230, 0.82);
+  font-size: 0.85rem;
+}
+
+.ledger-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ledger-header-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.ledger-header-row span:last-child {
+  font-weight: 500;
+  font-size: 0.72rem;
+  color: rgba(244, 239, 230, 0.55);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ledger-meta {
+  font-size: 0.78rem;
+  color: rgba(244, 239, 230, 0.75);
+}
+
+.ledger-empty {
+  text-align: center;
+  color: rgba(244, 239, 230, 0.6);
+  padding: 10px 0;
 }
 
 @media (max-width: 980px) {

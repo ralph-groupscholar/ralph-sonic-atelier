@@ -35,3 +35,9 @@
 - Added a cloud scene library with sync + refresh controls and UI styling.
 - Wired Vercel API endpoint to PostgreSQL for shared cloud scenes with auto schema setup.
 - Seeded production database with starter cloud scenes and documented env setup.
+- Tried deploying to Vercel but hit the daily deployment limit; needs retry later.
+
+## Iteration 3
+- Added a Motif Lab with morph intensity control and an evolve button to mutate the current phrase.
+- Wired motif evolution logic to preserve density while reshaping steps, updating status/log feedback.
+- Expanded scene saves to remember morph intensity alongside other performance controls.

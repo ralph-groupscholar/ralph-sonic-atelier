@@ -128,6 +128,20 @@
               <div class="step-monitor" id="stepMonitor"></div>
             </div>
           </div>
+          <div class="motif-lab">
+            <div class="motif-header">
+              <h3>Motif Lab</h3>
+              <p>Reshape the phrase while honoring its core rhythm.</p>
+            </div>
+            <div class="motif-controls">
+              <label>
+                <span>Morph Intensity</span>
+                <input id="morphIntensity" type="range" min="0" max="100" value="35" />
+                <output id="morphIntensityValue">35%</output>
+              </label>
+              <button id="evolveMotif" class="ghost">Evolve Motif</button>
+            </div>
+          </div>
           <div class="library">
             <div class="library-header">
               <h3>Scene Palette</h3>
@@ -139,6 +153,18 @@
               <button id="saveScene" class="ghost">Save Scene</button>
             </div>
             <ul class="saved-scenes" id="savedScenes"></ul>
+            <div class="cloud-library">
+              <div class="cloud-header">
+                <h4>Cloud Library</h4>
+                <p>Sync scenes across sessions.</p>
+              </div>
+              <div class="cloud-actions">
+                <button id="syncCloud" class="ghost">Sync Saved Scenes</button>
+                <button id="refreshCloud" class="ghost">Refresh Cloud</button>
+              </div>
+              <p class="cloud-status" id="cloudStatus">Cloud idle.</p>
+              <ul class="cloud-scenes" id="cloudScenes"></ul>
+            </div>
           </div>
         </div>
 
@@ -160,6 +186,13 @@
                 <button id="clearLog" class="ghost">Clear Log</button>
               </div>
               <ul id="sessionLog" class="session-log"></ul>
+            </div>
+            <div class="scene-card ledger-card">
+              <div class="ledger-header">
+                <h3>Studio Ledger</h3>
+                <button id="recordSession" class="ghost">Record Snapshot</button>
+              </div>
+              <ul id="ledgerList" class="ledger-list"></ul>
             </div>
             <div class="scene-card">
               <h3>Session Notes</h3>

@@ -476,7 +476,7 @@ function evolveMotif() {
     const shouldRest = Math.random() < 0.2 + intensity * 0.35;
 
     if (shouldRest) {
-      nextSequence[step] = currentNote === null ? null : null;
+      nextSequence[step] = null;
       continue;
     }
 
