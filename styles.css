@@ -614,10 +614,61 @@ canvas {
   color: rgba(244, 239, 230, 0.75);
 }
 
+.ledger-notes {
+  font-size: 0.75rem;
+  color: rgba(244, 239, 230, 0.68);
+  line-height: 1.4;
+}
+
 .ledger-empty {
   text-align: center;
   color: rgba(244, 239, 230, 0.6);
   padding: 10px 0;
+}
+
+.notes-card {
+  display: grid;
+  gap: 12px;
+}
+
+.note-field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(244, 239, 230, 0.65);
+}
+
+.note-field textarea,
+.note-field select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(15, 16, 20, 0.6);
+  color: rgba(244, 239, 230, 0.9);
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+}
+
+.note-field textarea {
+  resize: vertical;
+  min-height: 92px;
+}
+
+.note-field select {
+  cursor: pointer;
+}
+
+.note-field textarea::placeholder {
+  color: rgba(244, 239, 230, 0.45);
+}
+
+.note-hint {
+  margin: 0;
+  font-size: 0.76rem;
+  color: rgba(244, 239, 230, 0.6);
 }
 
 @media (max-width: 980px) {

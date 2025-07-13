@@ -41,3 +41,8 @@
 - Added a Motif Lab with morph intensity control and an evolve button to mutate the current phrase.
 - Wired motif evolution logic to preserve density while reshaping steps, updating status/log feedback.
 - Expanded scene saves to remember morph intensity alongside other performance controls.
+
+## Iteration 4
+- Replaced the static session notes panel with a snapshot notes editor and mood tag selector.
+- Wired ledger snapshots to capture custom notes plus optional mood overrides.
+- Extended ledger rendering to show stored notes alongside session metadata.

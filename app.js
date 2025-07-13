@@ -36,6 +36,8 @@ const ui = {
   cloudScenes: document.getElementById("cloudScenes"),
   recordSession: document.getElementById("recordSession"),
   ledgerList: document.getElementById("ledgerList"),
+  sessionNotes: document.getElementById("sessionNotes"),
+  moodOverride: document.getElementById("moodOverride"),
   toggleDrift: document.getElementById("toggleDrift"),
   driftRate: document.getElementById("driftRate"),
   driftRateValue: document.getElementById("driftRateValue"),
@@ -288,10 +290,12 @@ function renderLedger() {
     const name = document.createElement("span");
     const time = document.createElement("span");
     const meta = document.createElement("div");
+    const notes = document.createElement("div");
 
     item.className = "ledger-item";
     header.className = "ledger-header-row";
     meta.className = "ledger-meta";
+    notes.className = "ledger-notes";
 
     name.textContent = entry.scene_name;
     time.textContent = formatLedgerTimestamp(entry.created_at);
@@ -299,9 +303,11 @@ function renderLedger() {
     header.appendChild(time);
 
     meta.textContent = `${entry.root} ${entry.mode} \u2022 ${entry.tempo} BPM \u2022 ${entry.mood}`;
+    notes.textContent = entry.notes ? entry.notes : "No notes attached.";
 
     item.appendChild(header);
     item.appendChild(meta);
+    item.appendChild(notes);
     ui.ledgerList.appendChild(item);
   });
 }
@@ -325,6 +331,11 @@ async function fetchLedger() {
 async function recordSessionSnapshot() {
   if (!ui.recordSession) return;
   const sceneName = ui.sceneName.value.trim() || `Live ${state.root} ${state.mode}`;
+  const noteText = ui.sessionNotes ? ui.sessionNotes.value.trim() : "";
+  const moodOverride = ui.moodOverride ? ui.moodOverride.value : "auto";
+  const mood = moodOverride === "auto" ? buildMoodLabel() : moodOverride;
+  const runtimeNote = state.isPlaying ? "Recorded while live." : "Recorded while paused.";
+  const notes = noteText.length > 0 ? `${noteText} ${runtimeNote}` : runtimeNote;
   const payload = {
     sceneName,
     root: state.root,
@@ -338,8 +349,8 @@ async function recordSessionSnapshot() {
     texture: Math.round(state.texture * 100),
     atmosphere: Math.round(state.atmosphere * 100),
     swing: Math.round(state.swing * 100),
-    mood: buildMoodLabel(),
-    notes: state.isPlaying ? "Recorded while live." : "Recorded while paused.",
+    mood,
+    notes,
   };
 
   ui.recordSession.disabled = true;
@@ -353,6 +364,9 @@ async function recordSessionSnapshot() {
     if (!response.ok) throw new Error("Unable to record");
     updateStatus("Snapshot recorded in the studio ledger.");
     addLogEntry("Snapshot recorded to shared ledger.");
+    if (ui.sessionNotes) {
+      ui.sessionNotes.value = "";
+    }
     await fetchLedger();
   } catch (error) {
     updateStatus("Ledger offline. Snapshot not recorded.");

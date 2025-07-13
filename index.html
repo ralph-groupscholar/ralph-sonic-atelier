@@ -194,13 +194,29 @@
               </div>
               <ul id="ledgerList" class="ledger-list"></ul>
             </div>
-            <div class="scene-card">
-              <h3>Session Notes</h3>
-              <ul>
-                <li>Generative sequence follows scale + density.</li>
-                <li>Texture adds filtered noise for field warmth.</li>
-                <li>Atmosphere blends in spatial delay.</li>
-              </ul>
+            <div class="scene-card notes-card">
+              <h3>Snapshot Notes</h3>
+              <label class="note-field">
+                <span>Session Note</span>
+                <textarea
+                  id="sessionNotes"
+                  rows="4"
+                  maxlength="180"
+                  placeholder="Capture the feeling, intention, or next move..."
+                ></textarea>
+              </label>
+              <label class="note-field">
+                <span>Mood Tag</span>
+                <select id="moodOverride">
+                  <option value="auto">Auto (Current Mood)</option>
+                  <option value="Electric Focus">Electric Focus</option>
+                  <option value="Ambient Bloom">Ambient Bloom</option>
+                  <option value="Rhythmic Pulse">Rhythmic Pulse</option>
+                  <option value="Soft Drift">Soft Drift</option>
+                  <option value="Balanced Drift">Balanced Drift</option>
+                </select>
+              </label>
+              <p class="note-hint">Notes and mood tags travel with every ledger snapshot.</p>
             </div>
           </div>
         </div>
