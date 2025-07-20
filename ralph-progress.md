@@ -46,3 +46,7 @@
 - Replaced the static session notes panel with a snapshot notes editor and mood tag selector.
 - Wired ledger snapshots to capture custom notes plus optional mood overrides.
 - Extended ledger rendering to show stored notes alongside session metadata.
+
+## Iteration 5
+- Added the ledger API endpoint (`api/sessions.js`) to version control so snapshot logging deploys correctly.
+- Added the production seed helper for session snapshots to keep the ledger populated.
