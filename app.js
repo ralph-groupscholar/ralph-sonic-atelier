@@ -36,6 +36,7 @@ const ui = {
   cloudScenes: document.getElementById("cloudScenes"),
   recordSession: document.getElementById("recordSession"),
   ledgerList: document.getElementById("ledgerList"),
+  insightList: document.getElementById("insightList"),
   sessionNotes: document.getElementById("sessionNotes"),
   moodOverride: document.getElementById("moodOverride"),
   toggleDrift: document.getElementById("toggleDrift"),
@@ -93,6 +94,7 @@ const storageKey = "sonicAtelierScenes";
 const maxSavedScenes = 8;
 const cloudApi = "/api/scenes";
 const ledgerApi = "/api/sessions";
+const insightsApi = "/api/insights";
 const presets = [
   {
     name: "Ember Drift",
@@ -182,6 +184,8 @@ const sessionLog = [];
 const maxLogEntries = 10;
 let ledgerEntries = [];
 let ledgerStatus = "idle";
+let insightsStatus = "idle";
+let insightsData = null;
 
 function updateOutputs() {
   ui.tempoValue.textContent = `${state.tempo} BPM`;
@@ -245,6 +249,18 @@ function formatLedgerTimestamp(timestamp) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatInsightsTimestamp(timestamp) {
+  if (!timestamp) return "No snapshots yet.";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "Awaiting new snapshots.";
+  return `Last snapshot: ${date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
 }
 
 function buildMoodLabel() {
@@ -312,6 +328,50 @@ function renderLedger() {
   });
 }
 
+function renderInsights() {
+  if (!ui.insightList) return;
+  ui.insightList.innerHTML = "";
+
+  if (insightsStatus === "loading") {
+    const loading = document.createElement("li");
+    loading.className = "insight-empty";
+    loading.textContent = "Syncing insights...";
+    ui.insightList.appendChild(loading);
+    return;
+  }
+
+  if (insightsStatus === "offline") {
+    const offline = document.createElement("li");
+    offline.className = "insight-empty";
+    offline.textContent = "Insights offline. Deploy to unlock shared stats.";
+    ui.insightList.appendChild(offline);
+    return;
+  }
+
+  if (!insightsData || !insightsData.totalSessions) {
+    const empty = document.createElement("li");
+    empty.className = "insight-empty";
+    empty.textContent = "Record a snapshot to populate shared insights.";
+    ui.insightList.appendChild(empty);
+    return;
+  }
+
+  const rows = [
+    `Total snapshots: ${insightsData.totalSessions}`,
+    `Avg tempo: ${insightsData.avgTempo} BPM`,
+    `Avg density: ${insightsData.avgDensity} notes`,
+    `Avg energy: ${insightsData.avgEnergy}%`,
+    `Top mood: ${insightsData.topMood}`,
+    formatInsightsTimestamp(insightsData.lastSnapshot),
+  ];
+
+  rows.forEach((text) => {
+    const item = document.createElement("li");
+    item.textContent = text;
+    ui.insightList.appendChild(item);
+  });
+}
+
 async function fetchLedger() {
   if (!ui.ledgerList) return;
   ledgerStatus = "loading";
@@ -326,6 +386,22 @@ async function fetchLedger() {
     ledgerStatus = "offline";
   }
   renderLedger();
+}
+
+async function fetchInsights() {
+  if (!ui.insightList) return;
+  insightsStatus = "loading";
+  renderInsights();
+  try {
+    const response = await fetch(insightsApi);
+    if (!response.ok) throw new Error("Insights unavailable");
+    const data = await response.json();
+    insightsData = data && typeof data === "object" ? data : null;
+    insightsStatus = "ready";
+  } catch (error) {
+    insightsStatus = "offline";
+  }
+  renderInsights();
 }
 
 async function recordSessionSnapshot() {
@@ -368,6 +444,7 @@ async function recordSessionSnapshot() {
       ui.sessionNotes.value = "";
     }
     await fetchLedger();
+    await fetchInsights();
   } catch (error) {
     updateStatus("Ledger offline. Snapshot not recorded.");
     addLogEntry("Ledger offline. Snapshot not recorded.");
@@ -1230,6 +1307,7 @@ function init() {
   renderCloudScenes([]);
   fetchCloudScenes();
   fetchLedger();
+  fetchInsights();
   renderSessionLog();
   bindControls();
   resizeCanvas();

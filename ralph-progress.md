@@ -50,3 +50,8 @@
 ## Iteration 5
 - Added the ledger API endpoint (`api/sessions.js`) to version control so snapshot logging deploys correctly.
 - Added the production seed helper for session snapshots to keep the ledger populated.
+
+## Iteration 6
+- Added a studio insights card with shared ledger averages and last-snapshot timing.
+- Introduced a new `/api/insights` endpoint for aggregated session stats.
+- Wired the UI to refresh insights after recording snapshots and on load.
