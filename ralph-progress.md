@@ -55,3 +55,8 @@
 - Added a studio insights card with shared ledger averages and last-snapshot timing.
 - Introduced a new `/api/insights` endpoint for aggregated session stats.
 - Wired the UI to refresh insights after recording snapshots and on load.
+
+## Iteration 7
+- Added a Set Conductor panel with queue, duration, loop, and transport controls for guided performance runs.
+- Enabled queuing from saved scenes, cloud scenes, and the current sketch with persistent local setlists.
+- Highlighted active set cues, added set status messaging, and wired auto-advance timing.

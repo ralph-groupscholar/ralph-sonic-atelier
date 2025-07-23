@@ -34,6 +34,17 @@ const ui = {
   refreshCloud: document.getElementById("refreshCloud"),
   cloudStatus: document.getElementById("cloudStatus"),
   cloudScenes: document.getElementById("cloudScenes"),
+  cloudSearch: document.getElementById("cloudSearch"),
+  cloudMoodFilter: document.getElementById("cloudMoodFilter"),
+  setDuration: document.getElementById("setDuration"),
+  setDurationValue: document.getElementById("setDurationValue"),
+  queueCurrent: document.getElementById("queueCurrent"),
+  startSet: document.getElementById("startSet"),
+  stopSet: document.getElementById("stopSet"),
+  advanceSet: document.getElementById("advanceSet"),
+  toggleSetLoop: document.getElementById("toggleSetLoop"),
+  setStatus: document.getElementById("setStatus"),
+  setList: document.getElementById("setList"),
   recordSession: document.getElementById("recordSession"),
   ledgerList: document.getElementById("ledgerList"),
   insightList: document.getElementById("insightList"),
@@ -91,7 +102,9 @@ const modes = {
 };
 const rootOffsets = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 const storageKey = "sonicAtelierScenes";
+const setStorageKey = "sonicAtelierSetlist";
 const maxSavedScenes = 8;
+const maxSetItems = 6;
 const cloudApi = "/api/scenes";
 const ledgerApi = "/api/sessions";
 const insightsApi = "/api/insights";
@@ -186,6 +199,15 @@ let ledgerEntries = [];
 let ledgerStatus = "idle";
 let insightsStatus = "idle";
 let insightsData = null;
+let cloudScenes = [];
+let setQueue = [];
+const setState = {
+  running: false,
+  duration: ui.setDuration ? Number(ui.setDuration.value) : 60,
+  loop: false,
+  currentIndex: 0,
+  timerId: null,
+};
 
 function updateOutputs() {
   ui.tempoValue.textContent = `${state.tempo} BPM`;
@@ -201,6 +223,9 @@ function updateOutputs() {
   ui.driftRateValue.textContent = `${state.driftRate}s`;
   ui.driftRangeValue.textContent = `${Math.round(state.driftRange * 100)}%`;
   ui.morphIntensityValue.textContent = `${Math.round(state.morphIntensity * 100)}%`;
+  if (ui.setDurationValue) {
+    ui.setDurationValue.textContent = `${setState.duration}s`;
+  }
 }
 
 function updateStatus(message) {
@@ -270,6 +295,68 @@ function buildMoodLabel() {
   if (state.swing > 0.25 && state.energy > 0.5) return "Rhythmic Pulse";
   if (state.energy < 0.35) return "Soft Drift";
   return "Balanced Drift";
+}
+
+function normalizeLevel(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  if (numeric > 1) return numeric / 100;
+  return numeric;
+}
+
+function buildMoodLabelFromSettings(settings) {
+  const energy = normalizeLevel(settings?.energy);
+  const texture = normalizeLevel(settings?.texture);
+  const atmosphere = normalizeLevel(settings?.atmosphere);
+  const swing = normalizeLevel(settings?.swing);
+  const warmth = texture + atmosphere;
+  if (energy > 0.6 && warmth < 0.8) return "Electric Focus";
+  if (energy < 0.4 && warmth > 1.1) return "Ambient Bloom";
+  if (swing > 0.25 && energy > 0.5) return "Rhythmic Pulse";
+  if (energy < 0.35) return "Soft Drift";
+  return "Balanced Drift";
+}
+
+function formatCloudTimestamp(timestamp) {
+  if (!timestamp) return "Unknown time";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "Unknown time";
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 60 * 1000) return "Just now";
+  if (diffMs < 60 * 60 * 1000) return `${Math.floor(diffMs / (60 * 1000))}m ago`;
+  if (diffMs < 24 * 60 * 60 * 1000) return `${Math.floor(diffMs / (60 * 60 * 1000))}h ago`;
+  if (diffMs < 7 * 24 * 60 * 60 * 1000) return `${Math.floor(diffMs / (24 * 60 * 60 * 1000))}d ago`;
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function getCloudFilters() {
+  const searchTerm = ui.cloudSearch ? ui.cloudSearch.value.trim().toLowerCase() : "";
+  const mood = ui.cloudMoodFilter ? ui.cloudMoodFilter.value : "any";
+  const hasFilters = searchTerm.length > 0 || mood !== "any";
+  return { searchTerm, mood, hasFilters };
+}
+
+function getFilteredCloudScenes() {
+  const { searchTerm, mood, hasFilters } = getCloudFilters();
+  let filtered = [...cloudScenes];
+  if (searchTerm.length > 0) {
+    filtered = filtered.filter((scene) => {
+      const settings = scene.settings || {};
+      const moodLabel = buildMoodLabelFromSettings(settings);
+      const haystack = `${scene.name} ${settings.root || ""} ${settings.mode || ""} ${moodLabel}`
+        .toLowerCase();
+      return haystack.includes(searchTerm);
+    });
+  }
+  if (mood !== "any") {
+    filtered = filtered.filter((scene) => buildMoodLabelFromSettings(scene.settings || {}) === mood);
+  }
+  return { filtered, hasFilters };
+}
+
+function refreshCloudLibrary() {
+  const { filtered, hasFilters } = getFilteredCloudScenes();
+  renderCloudScenes(filtered, hasFilters);
 }
 
 function renderLedger() {
@@ -997,6 +1084,172 @@ function saveScenes(scenes) {
   localStorage.setItem(storageKey, JSON.stringify(scenes));
 }
 
+function loadSetlist() {
+  const raw = localStorage.getItem(setStorageKey);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveSetlist(list) {
+  localStorage.setItem(setStorageKey, JSON.stringify(list));
+}
+
+function updateSetStatus(message, isError = false) {
+  if (!ui.setStatus) return;
+  ui.setStatus.textContent = message;
+  ui.setStatus.dataset.state = isError ? "error" : "ok";
+}
+
+function renderSetlist() {
+  if (!ui.setList) return;
+  ui.setList.innerHTML = "";
+  if (setQueue.length === 0) {
+    const empty = document.createElement("li");
+    empty.textContent = "Setlist empty. Queue a few scenes.";
+    empty.style.opacity = "0.7";
+    ui.setList.appendChild(empty);
+    return;
+  }
+
+  setQueue.forEach((scene, index) => {
+    const item = document.createElement("li");
+    const order = document.createElement("span");
+    const name = document.createElement("span");
+    const removeButton = document.createElement("button");
+
+    order.textContent = `${index + 1}`;
+    name.textContent = scene.name;
+    removeButton.textContent = "Remove";
+
+    if (setState.running && index === setState.currentIndex) {
+      item.classList.add("active");
+    }
+
+    removeButton.addEventListener("click", () => {
+      setQueue = setQueue.filter((entry) => entry.id !== scene.id);
+      if (setState.currentIndex >= setQueue.length) {
+        setState.currentIndex = Math.max(0, setQueue.length - 1);
+      }
+      saveSetlist(setQueue);
+      renderSetlist();
+      updateSetStatus("Setlist updated.");
+    });
+
+    item.appendChild(order);
+    item.appendChild(name);
+    item.appendChild(removeButton);
+    ui.setList.appendChild(item);
+  });
+}
+
+function queueScene(scene) {
+  if (!scene) return;
+  const queued = {
+    id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    name: scene.name,
+    settings: scene.settings,
+  };
+  const nextQueue = [...setQueue, queued].slice(0, maxSetItems);
+  setQueue = nextQueue;
+  saveSetlist(setQueue);
+  renderSetlist();
+  updateSetStatus(`Queued "${scene.name}".`);
+}
+
+function playSetItem(index) {
+  const scene = setQueue[index];
+  if (!scene) return;
+  setState.currentIndex = index;
+  applySettings(scene.settings, true);
+  const message = `Set cue ${index + 1}/${setQueue.length}: ${scene.name}.`;
+  updateStatus(message);
+  addLogEntry(message);
+  updateSetStatus(setState.running ? `Running: ${scene.name}` : `Ready: ${scene.name}`);
+  renderSetlist();
+}
+
+function scheduleSetAdvance() {
+  clearTimeout(setState.timerId);
+  setState.timerId = setTimeout(() => {
+    advanceSet(true);
+  }, setState.duration * 1000);
+}
+
+function startSet() {
+  if (setQueue.length === 0) {
+    updateSetStatus("Setlist empty. Queue scenes first.", true);
+    return;
+  }
+  setState.running = true;
+  if (setState.currentIndex >= setQueue.length) {
+    setState.currentIndex = 0;
+  }
+  playSetItem(setState.currentIndex);
+  scheduleSetAdvance();
+}
+
+function stopSet() {
+  setState.running = false;
+  clearTimeout(setState.timerId);
+  updateSetStatus("Set paused.");
+  renderSetlist();
+}
+
+function advanceSet(isAuto = false) {
+  if (setQueue.length === 0) return;
+  let nextIndex = setState.currentIndex + 1;
+  if (nextIndex >= setQueue.length) {
+    if (setState.loop) {
+      nextIndex = 0;
+    } else {
+      stopSet();
+      if (isAuto) {
+        updateSetStatus("Set complete.");
+      }
+      return;
+    }
+  }
+  playSetItem(nextIndex);
+  if (setState.running) {
+    scheduleSetAdvance();
+  }
+}
+
+function toggleSetLoop() {
+  setState.loop = !setState.loop;
+  if (ui.toggleSetLoop) {
+    ui.toggleSetLoop.textContent = setState.loop ? "Loop On" : "Loop Off";
+  }
+  updateSetStatus(setState.loop ? "Loop enabled." : "Loop disabled.");
+}
+
+function queueCurrentState() {
+  const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  queueScene({
+    name: `Current Sketch ${timestamp}`,
+    settings: {
+      tempo: state.tempo,
+      density: state.density,
+      energy: state.energy,
+      accent: state.accent,
+      humanize: state.humanize,
+      texture: state.texture,
+      atmosphere: state.atmosphere,
+      swing: state.swing,
+      length: state.length,
+      root: state.root,
+      mode: state.mode,
+      droneLevel: state.droneLevel,
+      morphIntensity: state.morphIntensity,
+    },
+  });
+}
+
 function setCloudStatus(message, isError = false) {
   ui.cloudStatus.textContent = message;
   ui.cloudStatus.dataset.state = isError ? "error" : "ok";
@@ -1017,10 +1270,12 @@ function renderCloudScenes(scenes) {
     const name = document.createElement("span");
     const loadButton = document.createElement("button");
     const saveLocalButton = document.createElement("button");
+    const queueButton = document.createElement("button");
 
     name.textContent = scene.name;
     loadButton.textContent = "Load";
     saveLocalButton.textContent = "Save Local";
+    queueButton.textContent = "Queue";
 
     loadButton.addEventListener("click", () => {
       applySettings(scene.settings, true);
@@ -1044,9 +1299,14 @@ function renderCloudScenes(scenes) {
       addLogEntry(message);
     });
 
+    queueButton.addEventListener("click", () => {
+      queueScene({ name: scene.name, settings: scene.settings });
+    });
+
     item.appendChild(name);
     item.appendChild(loadButton);
     item.appendChild(saveLocalButton);
+    item.appendChild(queueButton);
     ui.cloudScenes.appendChild(item);
   });
 }
@@ -1114,10 +1374,12 @@ function renderSavedScenes() {
     const item = document.createElement("li");
     const name = document.createElement("span");
     const loadButton = document.createElement("button");
+    const queueButton = document.createElement("button");
     const removeButton = document.createElement("button");
 
     name.textContent = scene.name;
     loadButton.textContent = "Load";
+    queueButton.textContent = "Queue";
     removeButton.textContent = "Remove";
 
     loadButton.addEventListener("click", () => {
@@ -1125,6 +1387,10 @@ function renderSavedScenes() {
       const message = `Loaded scene: ${scene.name}.`;
       updateStatus(message);
       addLogEntry(message);
+    });
+
+    queueButton.addEventListener("click", () => {
+      queueScene({ name: scene.name, settings: scene.settings });
     });
 
     removeButton.addEventListener("click", () => {
@@ -1138,6 +1404,7 @@ function renderSavedScenes() {
 
     item.appendChild(name);
     item.appendChild(loadButton);
+    item.appendChild(queueButton);
     item.appendChild(removeButton);
     ui.savedScenes.appendChild(item);
   });
@@ -1264,12 +1531,36 @@ function bindControls() {
     updateOutputs();
   });
 
+  if (ui.setDuration) {
+    ui.setDuration.addEventListener("input", (event) => {
+      setState.duration = Number(event.target.value);
+      if (ui.setDurationValue) {
+        ui.setDurationValue.textContent = `${setState.duration}s`;
+      }
+    });
+  }
+
   ui.toggleTexture.addEventListener("click", toggleTexture);
   ui.toggleDrone.addEventListener("click", toggleDrone);
   ui.toggleVisuals.addEventListener("click", toggleVisuals);
   ui.toggleDrift.addEventListener("click", toggleDrift);
   ui.evolveMotif.addEventListener("click", evolveMotif);
   ui.saveScene.addEventListener("click", saveScene);
+  if (ui.queueCurrent) {
+    ui.queueCurrent.addEventListener("click", queueCurrentState);
+  }
+  if (ui.startSet) {
+    ui.startSet.addEventListener("click", startSet);
+  }
+  if (ui.advanceSet) {
+    ui.advanceSet.addEventListener("click", () => advanceSet(false));
+  }
+  if (ui.stopSet) {
+    ui.stopSet.addEventListener("click", stopSet);
+  }
+  if (ui.toggleSetLoop) {
+    ui.toggleSetLoop.addEventListener("click", toggleSetLoop);
+  }
   if (ui.recordSession) {
     ui.recordSession.addEventListener("click", recordSessionSnapshot);
   }
@@ -1301,10 +1592,16 @@ function init() {
   ui.toggleDrone.textContent = "Enable Drone";
   ui.toggleVisuals.textContent = "Hide Visuals";
   ui.toggleDrift.textContent = "Enable Drift";
+  if (ui.toggleSetLoop) {
+    ui.toggleSetLoop.textContent = setState.loop ? "Loop On" : "Loop Off";
+  }
   generateSequence();
   createPresetButtons();
   renderSavedScenes();
   renderCloudScenes([]);
+  setQueue = loadSetlist();
+  renderSetlist();
+  updateSetStatus(setQueue.length ? "Set ready. Tap Start Set." : "Set idle. Queue a few scenes.");
   fetchCloudScenes();
   fetchLedger();
   fetchInsights();

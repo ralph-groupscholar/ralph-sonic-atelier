@@ -162,9 +162,46 @@
                 <button id="syncCloud" class="ghost">Sync Saved Scenes</button>
                 <button id="refreshCloud" class="ghost">Refresh Cloud</button>
               </div>
+              <div class="cloud-filters">
+                <input
+                  id="cloudSearch"
+                  type="search"
+                  placeholder="Search cloud scenes"
+                />
+                <select id="cloudMoodFilter">
+                  <option value="any">Any mood</option>
+                  <option value="Electric Focus">Electric Focus</option>
+                  <option value="Ambient Bloom">Ambient Bloom</option>
+                  <option value="Rhythmic Pulse">Rhythmic Pulse</option>
+                  <option value="Soft Drift">Soft Drift</option>
+                  <option value="Balanced Drift">Balanced Drift</option>
+                </select>
+              </div>
               <p class="cloud-status" id="cloudStatus">Cloud idle.</p>
               <ul class="cloud-scenes" id="cloudScenes"></ul>
             </div>
+          </div>
+          <div class="set-conductor">
+            <div class="set-header">
+              <h3>Set Conductor</h3>
+              <p>Queue scenes for a guided performance run.</p>
+            </div>
+            <div class="set-controls">
+              <label>
+                <span>Scene Duration</span>
+                <input id="setDuration" type="range" min="20" max="180" value="60" />
+                <output id="setDurationValue">60s</output>
+              </label>
+              <div class="set-actions">
+                <button id="queueCurrent" class="ghost">Queue Current</button>
+                <button id="startSet" class="ghost">Start Set</button>
+                <button id="advanceSet" class="ghost">Advance</button>
+                <button id="stopSet" class="ghost">Stop</button>
+                <button id="toggleSetLoop" class="ghost">Loop Off</button>
+              </div>
+            </div>
+            <p class="set-status" id="setStatus">Set idle. Queue a few scenes.</p>
+            <ul class="set-list" id="setList"></ul>
           </div>
         </div>
 
