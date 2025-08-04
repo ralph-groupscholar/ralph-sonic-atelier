@@ -3,8 +3,10 @@ const { Pool } = require("pg");
 const SCHEMA = "ralph_sonic_atelier";
 const TABLE = "sessions";
 const CLOUD_TABLE = "cloud_scenes";
+const SET_RUNS_TABLE = "set_runs";
 const tableRef = `"${SCHEMA}"."${TABLE}"`;
 const cloudTableRef = `"${SCHEMA}"."${CLOUD_TABLE}"`;
+const setRunsTableRef = `"${SCHEMA}"."${SET_RUNS_TABLE}"`;
 
 let pool;
 let initialized = false;
@@ -60,6 +62,19 @@ async function ensureSchema() {
       created_at timestamptz NOT NULL DEFAULT now()
     );
   `);
+  await poolInstance.query(`
+    CREATE TABLE IF NOT EXISTS ${setRunsTableRef} (
+      id uuid PRIMARY KEY,
+      status text NOT NULL,
+      started_at timestamptz NOT NULL,
+      ended_at timestamptz NOT NULL,
+      duration_seconds integer NOT NULL,
+      scene_count integer NOT NULL,
+      looped boolean NOT NULL DEFAULT false,
+      setlist jsonb NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
   await poolInstance.query(
     `CREATE INDEX IF NOT EXISTS ${TABLE}_created_at_idx ON ${tableRef} (created_at DESC);`
   );
@@ -69,6 +84,9 @@ async function ensureSchema() {
   await poolInstance.query(
     `CREATE UNIQUE INDEX IF NOT EXISTS ${CLOUD_TABLE}_unique_idx ON ${cloudTableRef} (name, settings);`
   );
+  await poolInstance.query(
+    `CREATE INDEX IF NOT EXISTS ${SET_RUNS_TABLE}_created_at_idx ON ${setRunsTableRef} (created_at DESC);`
+  );
   initialized = true;
 }
 
@@ -76,8 +94,10 @@ module.exports = {
   SCHEMA,
   TABLE,
   CLOUD_TABLE,
+  SET_RUNS_TABLE,
   tableRef,
   cloudTableRef,
+  setRunsTableRef,
   getPool,
   ensureSchema,
 };

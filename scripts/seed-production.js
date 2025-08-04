@@ -1,5 +1,5 @@
 const { randomUUID } = require("crypto");
-const { ensureSchema, getPool, tableRef } = require("../api/lib/db");
+const { ensureSchema, getPool, tableRef, setRunsTableRef } = require("../api/lib/db");
 
 const seedSessions = [
   {
@@ -84,16 +84,41 @@ const seedSessions = [
   },
 ];
 
+const seedSetRuns = [
+  {
+    status: "Completed",
+    startedAt: "2026-02-07T19:42:00Z",
+    endedAt: "2026-02-07T19:49:12Z",
+    durationSeconds: 432,
+    sceneCount: 4,
+    looped: false,
+    setlist: [
+      { name: "Ember Drift", root: "F", mode: "Dorian", tempo: 78 },
+      { name: "Lumen Pulse", root: "A", mode: "Mixolydian", tempo: 124 },
+      { name: "Silver Tide", root: "D", mode: "Lydian", tempo: 96 },
+      { name: "Noon Signal", root: "C", mode: "Ionian", tempo: 112 },
+    ],
+  },
+  {
+    status: "Stopped",
+    startedAt: "2026-02-07T21:05:00Z",
+    endedAt: "2026-02-07T21:08:05Z",
+    durationSeconds: 185,
+    sceneCount: 3,
+    looped: true,
+    setlist: [
+      { name: "Copper Bloom", root: "G", mode: "Aeolian", tempo: 88 },
+      { name: "Aurora Bloom", root: "D", mode: "Dorian", tempo: 88 },
+      { name: "Sunlit Run", root: "G", mode: "Ionian", tempo: 132 },
+    ],
+  },
+];
+
 async function seed() {
   await ensureSchema();
   const pool = getPool();
-  const { rows } = await pool.query(`SELECT COUNT(*)::int AS count FROM ${tableRef};`);
-
-  if (rows[0].count > 0) {
-    console.log("Seed skipped: sessions already present.");
-    await pool.end();
-    return;
-  }
+  const sessionCount = await pool.query(`SELECT COUNT(*)::int AS count FROM ${tableRef};`);
+  const setRunCount = await pool.query(`SELECT COUNT(*)::int AS count FROM ${setRunsTableRef};`);
 
   const insertText = `
     INSERT INTO ${tableRef}
@@ -101,28 +126,56 @@ async function seed() {
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15);
   `;
 
-  for (const session of seedSessions) {
-    const values = [
-      randomUUID(),
-      session.sceneName,
-      session.root,
-      session.mode,
-      session.tempo,
-      session.density,
-      session.length,
-      session.energy,
-      session.accent,
-      session.humanize,
-      session.texture,
-      session.atmosphere,
-      session.swing,
-      session.mood,
-      session.notes,
-    ];
-    await pool.query(insertText, values);
+  if (sessionCount.rows[0].count === 0) {
+    for (const session of seedSessions) {
+      const values = [
+        randomUUID(),
+        session.sceneName,
+        session.root,
+        session.mode,
+        session.tempo,
+        session.density,
+        session.length,
+        session.energy,
+        session.accent,
+        session.humanize,
+        session.texture,
+        session.atmosphere,
+        session.swing,
+        session.mood,
+        session.notes,
+      ];
+      await pool.query(insertText, values);
+    }
+    console.log(`Seeded ${seedSessions.length} Sonic Atelier sessions.`);
+  } else {
+    console.log("Seed skipped: sessions already present.");
   }
 
-  console.log(`Seeded ${seedSessions.length} Sonic Atelier sessions.`);
+  const insertRuns = `
+    INSERT INTO ${setRunsTableRef}
+    (id, status, started_at, ended_at, duration_seconds, scene_count, looped, setlist)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8);
+  `;
+
+  if (setRunCount.rows[0].count === 0) {
+    for (const run of seedSetRuns) {
+      const values = [
+        randomUUID(),
+        run.status,
+        run.startedAt,
+        run.endedAt,
+        run.durationSeconds,
+        run.sceneCount,
+        run.looped,
+        JSON.stringify(run.setlist),
+      ];
+      await pool.query(insertRuns, values);
+    }
+    console.log(`Seeded ${seedSetRuns.length} Sonic Atelier set runs.`);
+  } else {
+    console.log("Seed skipped: set runs already present.");
+  }
   await pool.end();
 }
 
