@@ -43,8 +43,11 @@ const ui = {
   stopSet: document.getElementById("stopSet"),
   advanceSet: document.getElementById("advanceSet"),
   toggleSetLoop: document.getElementById("toggleSetLoop"),
+  toggleAutoSnapshot: document.getElementById("toggleAutoSnapshot"),
   setStatus: document.getElementById("setStatus"),
   setList: document.getElementById("setList"),
+  setRunStatus: document.getElementById("setRunStatus"),
+  setRunList: document.getElementById("setRunList"),
   recordSession: document.getElementById("recordSession"),
   ledgerList: document.getElementById("ledgerList"),
   insightList: document.getElementById("insightList"),
@@ -108,6 +111,7 @@ const maxSetItems = 6;
 const cloudApi = "/api/scenes";
 const ledgerApi = "/api/sessions";
 const insightsApi = "/api/insights";
+const setRunsApi = "/api/set-runs";
 const presets = [
   {
     name: "Ember Drift",
@@ -199,14 +203,19 @@ let ledgerEntries = [];
 let ledgerStatus = "idle";
 let insightsStatus = "idle";
 let insightsData = null;
+let snapshotInFlight = false;
+let setRuns = [];
+let setRunsStatus = "idle";
 let cloudScenes = [];
 let setQueue = [];
 const setState = {
   running: false,
   duration: ui.setDuration ? Number(ui.setDuration.value) : 60,
   loop: false,
+  autoSnapshot: false,
   currentIndex: 0,
   timerId: null,
+  runStartedAt: null,
 };
 
 function updateOutputs() {
@@ -493,13 +502,34 @@ async function fetchInsights() {
 
 async function recordSessionSnapshot() {
   if (!ui.recordSession) return;
+  if (snapshotInFlight) {
+    updateStatus("Snapshot already recording.");
+    addLogEntry("Snapshot already recording.");
+    return;
+  }
   const sceneName = ui.sceneName.value.trim() || `Live ${state.root} ${state.mode}`;
   const noteText = ui.sessionNotes ? ui.sessionNotes.value.trim() : "";
   const moodOverride = ui.moodOverride ? ui.moodOverride.value : "auto";
-  const mood = moodOverride === "auto" ? buildMoodLabel() : moodOverride;
+  const notes = buildSnapshotNotes(noteText);
+  const payload = buildSnapshotPayload({ sceneName, notes, moodOverride });
+  await submitSnapshot(payload, {
+    button: ui.recordSession,
+    clearNotes: true,
+    statusMessage: "Snapshot recorded in the studio ledger.",
+    logMessage: "Snapshot recorded to shared ledger.",
+    failureMessage: "Ledger offline. Snapshot not recorded.",
+  });
+}
+
+function buildSnapshotNotes(noteText = "") {
   const runtimeNote = state.isPlaying ? "Recorded while live." : "Recorded while paused.";
-  const notes = noteText.length > 0 ? `${noteText} ${runtimeNote}` : runtimeNote;
-  const payload = {
+  return noteText.length > 0 ? `${noteText} ${runtimeNote}` : runtimeNote;
+}
+
+function buildSnapshotPayload({ sceneName, notes, moodOverride }) {
+  const moodSelection = moodOverride ?? "auto";
+  const mood = moodSelection === "auto" ? buildMoodLabel() : moodSelection;
+  return {
     sceneName,
     root: state.root,
     mode: state.mode,
@@ -515,9 +545,22 @@ async function recordSessionSnapshot() {
     mood,
     notes,
   };
+}
 
-  ui.recordSession.disabled = true;
-  ui.recordSession.textContent = "Recording...";
+async function submitSnapshot(payload, options = {}) {
+  if (snapshotInFlight) return;
+  snapshotInFlight = true;
+  const {
+    button,
+    clearNotes = false,
+    statusMessage = "Snapshot recorded.",
+    logMessage = "Snapshot recorded.",
+    failureMessage = "Snapshot failed.",
+  } = options;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Recording...";
+  }
   try {
     const response = await fetch(ledgerApi, {
       method: "POST",
@@ -525,20 +568,35 @@ async function recordSessionSnapshot() {
       body: JSON.stringify(payload),
     });
     if (!response.ok) throw new Error("Unable to record");
-    updateStatus("Snapshot recorded in the studio ledger.");
-    addLogEntry("Snapshot recorded to shared ledger.");
-    if (ui.sessionNotes) {
+    updateStatus(statusMessage);
+    addLogEntry(logMessage);
+    if (clearNotes && ui.sessionNotes) {
       ui.sessionNotes.value = "";
     }
     await fetchLedger();
     await fetchInsights();
   } catch (error) {
-    updateStatus("Ledger offline. Snapshot not recorded.");
-    addLogEntry("Ledger offline. Snapshot not recorded.");
+    updateStatus(failureMessage);
+    addLogEntry(failureMessage);
   } finally {
-    ui.recordSession.disabled = false;
-    ui.recordSession.textContent = "Record Snapshot";
+    snapshotInFlight = false;
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Record Snapshot";
+    }
   }
+}
+
+async function recordAutoSnapshot(sceneName) {
+  if (!sceneName) return;
+  if (snapshotInFlight) return;
+  const notes = `Auto snapshot from set conductor. ${buildSnapshotNotes()}`;
+  const payload = buildSnapshotPayload({ sceneName, notes, moodOverride: "auto" });
+  await submitSnapshot(payload, {
+    statusMessage: `Auto snapshot recorded for ${sceneName}.`,
+    logMessage: `Auto snapshot recorded for ${sceneName}.`,
+    failureMessage: "Ledger offline. Auto snapshot skipped.",
+  });
 }
 
 function createButtons(list, container, handler) {
@@ -1147,6 +1205,144 @@ function renderSetlist() {
   });
 }
 
+function formatDuration(seconds) {
+  const total = Number(seconds);
+  if (!Number.isFinite(total) || total <= 0) return "0s";
+  const mins = Math.floor(total / 60);
+  const secs = Math.floor(total % 60);
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
+}
+
+function updateSetRunStatus(message, isError = false) {
+  if (!ui.setRunStatus) return;
+  ui.setRunStatus.textContent = message;
+  ui.setRunStatus.dataset.state = isError ? "error" : "ok";
+}
+
+function renderSetRuns() {
+  if (!ui.setRunList) return;
+  ui.setRunList.innerHTML = "";
+
+  if (setRunsStatus === "loading") {
+    const loading = document.createElement("li");
+    loading.className = "set-run-empty";
+    loading.textContent = "Syncing set log...";
+    ui.setRunList.appendChild(loading);
+    return;
+  }
+
+  if (setRunsStatus === "offline") {
+    const offline = document.createElement("li");
+    offline.className = "set-run-empty";
+    offline.textContent = "Set log offline. Deploy to sync runs.";
+    ui.setRunList.appendChild(offline);
+    return;
+  }
+
+  if (setRuns.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "set-run-empty";
+    empty.textContent = "No set runs logged yet.";
+    ui.setRunList.appendChild(empty);
+    return;
+  }
+
+  setRuns.forEach((run) => {
+    const item = document.createElement("li");
+    const header = document.createElement("div");
+    const title = document.createElement("span");
+    const time = document.createElement("span");
+    const meta = document.createElement("div");
+    const scenes = document.createElement("div");
+
+    item.className = "set-run-item";
+    header.className = "set-run-header";
+    meta.className = "set-run-meta";
+    scenes.className = "set-run-scenes";
+
+    const statusLabel = run.status || "Run";
+    title.textContent = `${statusLabel} \u2022 ${run.scene_count} scenes`;
+    time.textContent = formatLedgerTimestamp(run.started_at);
+    header.appendChild(title);
+    header.appendChild(time);
+
+    const loopedLabel = run.looped ? "Looped" : "Single pass";
+    meta.textContent = `${formatDuration(run.duration_seconds)} \u2022 ${loopedLabel}`;
+
+    const setlist = Array.isArray(run.setlist) ? run.setlist : [];
+    const sceneNames = setlist.map((entry) => entry.name).filter(Boolean);
+    scenes.textContent = sceneNames.length > 0 ? sceneNames.join(" \u2022 ") : "Scene list unavailable.";
+
+    item.appendChild(header);
+    item.appendChild(meta);
+    item.appendChild(scenes);
+    ui.setRunList.appendChild(item);
+  });
+}
+
+async function fetchSetRuns() {
+  if (!ui.setRunList) return;
+  setRunsStatus = "loading";
+  updateSetRunStatus("Syncing set log...");
+  renderSetRuns();
+  try {
+    const response = await fetch(`${setRunsApi}?limit=5`);
+    if (!response.ok) throw new Error("Set log unavailable");
+    const data = await response.json();
+    setRuns = Array.isArray(data.runs) ? data.runs : [];
+    setRunsStatus = "ready";
+    updateSetRunStatus("Set log synced.");
+  } catch (error) {
+    setRunsStatus = "offline";
+    updateSetRunStatus("Set log offline.", true);
+  }
+  renderSetRuns();
+}
+
+function buildSetRunPayload(status) {
+  if (!setState.runStartedAt) return null;
+  const startedAt = setState.runStartedAt;
+  const endedAt = new Date();
+  const durationSeconds = Math.max(
+    1,
+    Math.round((endedAt.getTime() - startedAt.getTime()) / 1000)
+  );
+  const setlist = setQueue.map((scene) => ({
+    name: scene.name,
+    root: scene.settings?.root,
+    mode: scene.settings?.mode,
+    tempo: scene.settings?.tempo,
+  }));
+
+  return {
+    status,
+    startedAt: startedAt.toISOString(),
+    endedAt: endedAt.toISOString(),
+    durationSeconds,
+    sceneCount: setQueue.length,
+    looped: setState.loop,
+    setlist,
+  };
+}
+
+async function recordSetRun(status) {
+  const payload = buildSetRunPayload(status);
+  if (!payload || setQueue.length === 0) return;
+  try {
+    await fetch(setRunsApi, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    await fetchSetRuns();
+  } catch (error) {
+    updateSetRunStatus("Set log offline.", true);
+  } finally {
+    setState.runStartedAt = null;
+  }
+}
+
 function queueScene(scene) {
   if (!scene) return;
   const queued = {
@@ -1171,6 +1367,9 @@ function playSetItem(index) {
   addLogEntry(message);
   updateSetStatus(setState.running ? `Running: ${scene.name}` : `Ready: ${scene.name}`);
   renderSetlist();
+  if (setState.running && setState.autoSnapshot) {
+    recordAutoSnapshot(scene.name);
+  }
 }
 
 function scheduleSetAdvance() {
@@ -1185,6 +1384,9 @@ function startSet() {
     updateSetStatus("Setlist empty. Queue scenes first.", true);
     return;
   }
+  if (!setState.running) {
+    setState.runStartedAt = new Date();
+  }
   setState.running = true;
   if (setState.currentIndex >= setQueue.length) {
     setState.currentIndex = 0;
@@ -1193,10 +1395,13 @@ function startSet() {
   scheduleSetAdvance();
 }
 
-function stopSet() {
+function stopSet({ message = "Set paused.", status = "Stopped" } = {}) {
   setState.running = false;
   clearTimeout(setState.timerId);
-  updateSetStatus("Set paused.");
+  if (setState.runStartedAt) {
+    recordSetRun(status);
+  }
+  updateSetStatus(message);
   renderSetlist();
 }
 
@@ -1207,10 +1412,9 @@ function advanceSet(isAuto = false) {
     if (setState.loop) {
       nextIndex = 0;
     } else {
-      stopSet();
-      if (isAuto) {
-        updateSetStatus("Set complete.");
-      }
+      const message = isAuto ? "Set complete." : "Set paused.";
+      const status = isAuto ? "Completed" : "Stopped";
+      stopSet({ message, status });
       return;
     }
   }
@@ -1226,6 +1430,17 @@ function toggleSetLoop() {
     ui.toggleSetLoop.textContent = setState.loop ? "Loop On" : "Loop Off";
   }
   updateSetStatus(setState.loop ? "Loop enabled." : "Loop disabled.");
+}
+
+function toggleAutoSnapshot() {
+  setState.autoSnapshot = !setState.autoSnapshot;
+  if (ui.toggleAutoSnapshot) {
+    ui.toggleAutoSnapshot.textContent = setState.autoSnapshot
+      ? "Auto Snapshot On"
+      : "Auto Snapshot Off";
+    ui.toggleAutoSnapshot.dataset.state = setState.autoSnapshot ? "on" : "off";
+  }
+  updateSetStatus(setState.autoSnapshot ? "Auto snapshots enabled." : "Auto snapshots disabled.");
 }
 
 function queueCurrentState() {
@@ -1255,11 +1470,13 @@ function setCloudStatus(message, isError = false) {
   ui.cloudStatus.dataset.state = isError ? "error" : "ok";
 }
 
-function renderCloudScenes(scenes) {
+function renderCloudScenes(scenes, hasFilters = false) {
   ui.cloudScenes.innerHTML = "";
   if (scenes.length === 0) {
     const empty = document.createElement("li");
-    empty.textContent = "Cloud library is empty.";
+    empty.textContent = hasFilters
+      ? "No cloud scenes match the current filters."
+      : "Cloud library is empty.";
     empty.style.opacity = "0.7";
     ui.cloudScenes.appendChild(empty);
     return;
@@ -1267,12 +1484,22 @@ function renderCloudScenes(scenes) {
 
   scenes.forEach((scene) => {
     const item = document.createElement("li");
+    const textWrap = document.createElement("div");
     const name = document.createElement("span");
+    const meta = document.createElement("span");
     const loadButton = document.createElement("button");
     const saveLocalButton = document.createElement("button");
     const queueButton = document.createElement("button");
+    const settings = scene.settings || {};
+    const moodLabel = buildMoodLabelFromSettings(settings);
+    const tempoLabel = settings.tempo ? Math.round(settings.tempo) : "--";
+    const rootLabel = settings.root || "Root";
+    const modeLabel = settings.mode || "Mode";
+    const ageLabel = formatCloudTimestamp(scene.created_at);
 
     name.textContent = scene.name;
+    meta.textContent = `${rootLabel} ${modeLabel} · ${tempoLabel} BPM · ${moodLabel} · ${ageLabel}`;
+    meta.className = "cloud-meta";
     loadButton.textContent = "Load";
     saveLocalButton.textContent = "Save Local";
     queueButton.textContent = "Queue";
@@ -1303,7 +1530,10 @@ function renderCloudScenes(scenes) {
       queueScene({ name: scene.name, settings: scene.settings });
     });
 
-    item.appendChild(name);
+    textWrap.className = "cloud-scene-text";
+    textWrap.appendChild(name);
+    textWrap.appendChild(meta);
+    item.appendChild(textWrap);
     item.appendChild(loadButton);
     item.appendChild(saveLocalButton);
     item.appendChild(queueButton);
@@ -1322,7 +1552,8 @@ async function fetchCloudScenes() {
     }
     const data = await response.json();
     const scenes = Array.isArray(data.scenes) ? data.scenes : [];
-    renderCloudScenes(scenes);
+    cloudScenes = scenes;
+    refreshCloudLibrary();
     setCloudStatus(`Cloud updated · ${scenes.length} scenes`);
   } catch (error) {
     const message = error?.message === "Database not configured."
@@ -1561,6 +1792,9 @@ function bindControls() {
   if (ui.toggleSetLoop) {
     ui.toggleSetLoop.addEventListener("click", toggleSetLoop);
   }
+  if (ui.toggleAutoSnapshot) {
+    ui.toggleAutoSnapshot.addEventListener("click", toggleAutoSnapshot);
+  }
   if (ui.recordSession) {
     ui.recordSession.addEventListener("click", recordSessionSnapshot);
   }
@@ -1595,6 +1829,12 @@ function init() {
   if (ui.toggleSetLoop) {
     ui.toggleSetLoop.textContent = setState.loop ? "Loop On" : "Loop Off";
   }
+  if (ui.toggleAutoSnapshot) {
+    ui.toggleAutoSnapshot.textContent = setState.autoSnapshot
+      ? "Auto Snapshot On"
+      : "Auto Snapshot Off";
+    ui.toggleAutoSnapshot.dataset.state = setState.autoSnapshot ? "on" : "off";
+  }
   generateSequence();
   createPresetButtons();
   renderSavedScenes();
@@ -1602,9 +1842,11 @@ function init() {
   setQueue = loadSetlist();
   renderSetlist();
   updateSetStatus(setQueue.length ? "Set ready. Tap Start Set." : "Set idle. Queue a few scenes.");
+  updateSetRunStatus("Set log idle.");
   fetchCloudScenes();
   fetchLedger();
   fetchInsights();
+  fetchSetRuns();
   renderSessionLog();
   bindControls();
   resizeCanvas();

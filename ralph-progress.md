@@ -62,5 +62,10 @@
 - Highlighted active set cues, added set status messaging, and wired auto-advance timing.
 
 ## Iteration 8
+- Added auto snapshot support for Set Conductor runs with a toggle and visual on-state styling.
+- Refactored ledger snapshot recording to share a common submission pipeline and avoid duplicate requests.
+- Ensured auto snapshots log status updates while keeping manual snapshot notes intact.
+
+## Iteration 8
 - Added a Set Log card to surface recent guided performance runs inside the studio view.
 - Styled the set run status, entries, and empty states to match the atelier’s dark canvas palette.
