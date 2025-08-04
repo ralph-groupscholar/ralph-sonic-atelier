@@ -60,3 +60,7 @@
 - Added a Set Conductor panel with queue, duration, loop, and transport controls for guided performance runs.
 - Enabled queuing from saved scenes, cloud scenes, and the current sketch with persistent local setlists.
 - Highlighted active set cues, added set status messaging, and wired auto-advance timing.
+
+## Iteration 8
+- Added a Set Log card to surface recent guided performance runs inside the studio view.
+- Styled the set run status, entries, and empty states to match the atelier’s dark canvas palette.

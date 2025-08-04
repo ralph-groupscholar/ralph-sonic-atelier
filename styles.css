@@ -525,6 +525,11 @@ output {
   border: 1px solid rgba(15, 16, 20, 0.18);
 }
 
+.set-actions button[data-state="on"] {
+  background: rgba(27, 161, 168, 0.18);
+  border-color: rgba(27, 161, 168, 0.45);
+}
+
 .set-status {
   margin: 0;
   font-size: 0.8rem;
@@ -565,6 +570,78 @@ output {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(15, 16, 20, 0.18);
+}
+
+.set-runs {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(15, 16, 20, 0.04);
+  border: 1px solid rgba(15, 16, 20, 0.08);
+}
+
+.set-runs-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.set-runs-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-family: var(--font-display);
+}
+
+.set-run-status {
+  margin: 0;
+  font-size: 0.75rem;
+  color: rgba(15, 16, 20, 0.6);
+}
+
+.set-run-status[data-state="error"] {
+  color: rgba(199, 45, 91, 0.8);
+}
+
+.set-run-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.set-run-item {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(15, 16, 20, 0.1);
+  font-size: 0.78rem;
+}
+
+.set-run-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.set-run-meta {
+  font-size: 0.72rem;
+  color: rgba(15, 16, 20, 0.6);
+}
+
+.set-run-scenes {
+  font-size: 0.72rem;
+  color: rgba(15, 16, 20, 0.75);
+}
+
+.set-run-empty {
+  font-size: 0.78rem;
+  color: rgba(15, 16, 20, 0.6);
 }
 
 .canvas-wrap {
@@ -739,6 +816,72 @@ canvas {
 }
 
 .ledger-empty {
+  text-align: center;
+  color: rgba(244, 239, 230, 0.6);
+  padding: 10px 0;
+}
+
+.set-run-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.set-run-header h3 {
+  margin: 0;
+}
+
+.set-run-status {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 239, 230, 0.6);
+}
+
+.set-run-status[data-state="error"] {
+  color: rgba(243, 91, 139, 0.8);
+}
+
+.set-run-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+  color: rgba(244, 239, 230, 0.82);
+  font-size: 0.82rem;
+}
+
+.set-run-item {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.set-run-header span:last-child {
+  font-weight: 500;
+  font-size: 0.7rem;
+  color: rgba(244, 239, 230, 0.55);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.set-run-meta {
+  font-size: 0.75rem;
+  color: rgba(244, 239, 230, 0.7);
+}
+
+.set-run-scenes {
+  font-size: 0.74rem;
+  color: rgba(244, 239, 230, 0.6);
+  line-height: 1.4;
+}
+
+.set-run-empty {
   text-align: center;
   color: rgba(244, 239, 230, 0.6);
   padding: 10px 0;

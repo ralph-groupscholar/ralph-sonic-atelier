@@ -198,10 +198,18 @@
                 <button id="advanceSet" class="ghost">Advance</button>
                 <button id="stopSet" class="ghost">Stop</button>
                 <button id="toggleSetLoop" class="ghost">Loop Off</button>
+                <button id="toggleAutoSnapshot" class="ghost">Auto Snapshot Off</button>
               </div>
             </div>
             <p class="set-status" id="setStatus">Set idle. Queue a few scenes.</p>
             <ul class="set-list" id="setList"></ul>
+            <div class="set-runs">
+              <div class="set-runs-header">
+                <h4>Set Log</h4>
+                <p class="set-run-status" id="setRunStatus">Set log idle.</p>
+              </div>
+              <ul class="set-run-list" id="setRunList"></ul>
+            </div>
           </div>
         </div>
 
@@ -235,6 +243,13 @@
                 <button id="recordSession" class="ghost">Record Snapshot</button>
               </div>
               <ul id="ledgerList" class="ledger-list"></ul>
+            </div>
+            <div class="scene-card set-run-card">
+              <div class="set-run-header">
+                <h3>Set Log</h3>
+                <p id="setRunStatus" class="set-run-status">Set log idle.</p>
+              </div>
+              <ul id="setRunList" class="set-run-list"></ul>
             </div>
             <div class="scene-card notes-card">
               <h3>Snapshot Notes</h3>
